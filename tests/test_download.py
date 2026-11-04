@@ -111,7 +111,7 @@ class DownloadTest(unittest.TestCase):
             hello_movie = HelloMovie(client)
             hello_movie.authenticated_until = float('inf')
             output = Path(directory)
-            path = hello_movie.download(movie(), output, True)
+            (path,) = hello_movie.download(movie(), output, True)
             self.assertEqual(path.read_bytes(), DECODED_HEADER)
             self.assertEqual(path.with_suffix('.zip').read_bytes(), package.getvalue())
             saved_movie = Movie.model_validate_json(path.with_suffix('.info.json').read_text())
@@ -134,9 +134,34 @@ class DownloadTest(unittest.TestCase):
             hello_movie = HelloMovie(client)
             hello_movie.authenticated_until = float('inf')
             target = movie().model_copy(update={'external_bucket': 'hellomovie-app-disney', 'name': '../Sample'})
-            path = hello_movie.download(target, Path(directory), False)
+            (path,) = hello_movie.download(target, Path(directory), False)
             self.assertEqual(path.parent, Path(directory))
             self.assertEqual(list(Path(directory).iterdir()), [path])
+
+    def test_download_saves_waiting_audio_by_default(self) -> None:
+        encoded_waiting_header = bytes.fromhex(
+            '4e66665201030101ed5ada76449aa2c2b11e137a746311e2218c35ce43a03fe86fbecdd6b0a6091d3990fa5ff015f9'
+        )
+        decoded_waiting_header = bytes.fromhex(
+            '4f6767530002000000000000000090f2b62700000000fc49178701134f707573486561640102380180bb0000000000'
+        )
+        package = io.BytesIO()
+        with ZipFile(package, 'w') as archive:
+            archive.writestr('voiceguide/data/sound.dat', ENCODED_HEADER)
+            archive.writestr('voiceguide/data/waiting.dat', encoded_waiting_header)
+
+        def respond(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(200, content=package.getvalue())
+
+        with TemporaryDirectory() as directory, httpx.Client(transport=httpx.MockTransport(respond)) as client:
+            hello_movie = HelloMovie(client)
+            hello_movie.authenticated_until = float('inf')
+            output = Path(directory)
+            audio_path, waiting_path = hello_movie.download(movie(), output, False)
+            self.assertEqual(waiting_path, output / 'Sample Title [1].waiting.opus')
+            self.assertEqual(audio_path.read_bytes(), DECODED_HEADER)
+            self.assertEqual(waiting_path.read_bytes(), decoded_waiting_header)
+            self.assertEqual(set(output.iterdir()), {audio_path, waiting_path})
 
     def test_invalid_list_and_id_combination_fails_before_network(self) -> None:
         result = CliRunner().invoke(app, ['--list', '1'])

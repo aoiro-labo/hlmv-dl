@@ -134,7 +134,10 @@ Output audio files are saved using the following naming structure:
 
 ```text
 <Sanitized Title> [<TITLE_ID>].opus
+<Sanitized Title> [<TITLE_ID>].waiting.opus
 ```
+
+The first file is the main track. The `.waiting.opus` file contains the pre-show waiting audio and is saved whenever the package includes that track.
 
 Illegal filesystem characters (e.g., `/`, `\`, `:`, `*`, `?`, `"`, `<`, `>`, `|`) and control codes are automatically replaced with underscores (`_`) for safe cross-platform file saving.
 
@@ -154,7 +157,7 @@ Duplicate IDs in the same command are automatically deduplicated.
 
 ### Step 4: Preserving Raw Packages and Metadata (`--keep-package`)
 
-By default, temporary files are cleaned up immediately after extracting the Opus audio stream.
+By default, temporary files are cleaned up immediately after extracting the Opus audio tracks.
 
 If you want to keep the original raw package archive and title metadata, pass the `--keep-package` flag:
 
@@ -162,11 +165,12 @@ If you want to keep the original raw package archive and title metadata, pass th
 hlmv-dl <TITLE_ID> --keep-package -o ./downloads
 ```
 
-This saves three files in the output directory:
+This saves the following files in the output directory:
 
-1. **`<Title> [<ID>].opus`**: Restored Ogg Opus audio file ready for playback.
-2. **`<Title> [<ID>].zip`**: Original distribution archive containing the raw encrypted payload and synchronization data.
-3. **`<Title> [<ID>].info.json`**: Formatted JSON file containing metadata returned by the catalog API (dates, bucket identifiers, tokens, etc.).
+1. **`<Title> [<ID>].opus`**: Restored main audio track.
+2. **`<Title> [<ID>].waiting.opus`**: Restored pre-show waiting audio, when included in the package.
+3. **`<Title> [<ID>].zip`**: Original distribution archive containing the raw encrypted payload and synchronization data.
+4. **`<Title> [<ID>].info.json`**: Formatted JSON file containing metadata returned by the catalog API (dates, bucket identifiers, tokens, etc.).
 
 ## Command-Line Reference
 

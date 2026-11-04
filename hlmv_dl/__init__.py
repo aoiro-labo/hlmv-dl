@@ -124,9 +124,9 @@ class HelloMovie:
             reverse=True,
         )
 
-    def download(self, movie: Movie, output: Path, keep_package: bool) -> Path:
+    def download(self, movie: Movie, output: Path, keep_package: bool) -> list[Path]:
         """
-        Download an audio package and save it as standard Opus audio.
+        Download an audio package and save the main track and any pre-show waiting track as Opus files.
 
         Args:
             movie (Movie): Target movie title
@@ -134,12 +134,13 @@ class HelloMovie:
             keep_package (bool): Whether to also preserve the original ZIP package and metadata JSON
 
         Returns:
-            Path: Path to the saved Opus audio file
+            list[Path]: Paths to the saved Opus files, with the main track first
         """
 
         name = re.sub(r'[\x00-\x1f<>:"/\\|?*]', '_', movie.name).rstrip(' .')
         stem = f'{name} [{movie.title_id}]'
         audio_path = output / f'{stem}.opus'
+        waiting_path = output / f'{stem}.waiting.opus'
         package_path = output / f'{stem}.zip'
         metadata_path = output / f'{stem}.info.json'
         destinations = [audio_path, package_path, metadata_path] if keep_package is True else [audio_path]
@@ -175,29 +176,34 @@ class HelloMovie:
             package.seek(0)
             with ZipFile(package) as archive:
                 # Read audio payload directly without extracting the entire archive
-                audio = decode_audio(archive.read('voiceguide/data/sound.dat'), movie.token)
+                audio_files = {audio_path: decode_audio(archive.read('voiceguide/data/sound.dat'), movie.token)}
+                if 'voiceguide/data/waiting.dat' in archive.namelist():
+                    if waiting_path.exists() is True:
+                        raise FileExistsError(f'Destination file already exists: {waiting_path}')
+                    audio_files[waiting_path] = decode_audio(archive.read('voiceguide/data/waiting.dat'), movie.token)
             output.mkdir(parents=True, exist_ok=True)
-            with audio_path.open('xb') as audio_file:
-                audio_file.write(audio)
+            for path, audio in audio_files.items():
+                with path.open('xb') as audio_file:
+                    audio_file.write(audio)
             if keep_package is True:
                 package.seek(0)
                 with package_path.open('xb') as package_file:
                     shutil.copyfileobj(package, package_file)
                 with metadata_path.open('x', encoding='utf-8') as metadata_file:
                     metadata_file.write(movie.model_dump_json(indent=2) + '\n')
-        return audio_path
+        return list(audio_files)
 
 
 def decode_audio(encoded: bytes, token: int) -> bytes:
     """
-    Reverse repetitive XOR encryption on sound.dat to restore the original Ogg Opus stream.
+    Reverse repetitive XOR encryption on sound.dat or waiting.dat to restore the original Ogg Opus stream.
 
     Args:
-        encoded (bytes): Encoded sound.dat payload from the package
+        encoded (bytes): Encoded sound.dat or waiting.dat payload from the package
         token (int): Title token from the catalog
 
     Returns:
-        bytes: Uncompressed, bit-exact Ogg Opus audio data
+        bytes: Bit-exact Ogg Opus audio data
     """
 
     # Reproduce 64-bit XorShift seeded with 32-bit initial value
@@ -253,8 +259,8 @@ def download(
             selected.append(movie)
         for movie in selected:
             console.print(f'{movie.name} / {movie.lang_name} / ID: {movie.title_id}', markup=False, soft_wrap=True)
-            path = hello_movie.download(movie, output, keep_package)
-            console.print(f'Saved: {path.resolve()}', markup=False, soft_wrap=True)
+            for path in hello_movie.download(movie, output, keep_package):
+                console.print(f'Saved: {path.resolve()}', markup=False, soft_wrap=True)
 
 
 def main() -> None:
