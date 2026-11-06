@@ -173,6 +173,7 @@ class DownloadTest(unittest.TestCase):
 
         available = movie().model_dump()
         malformed = {'title_id': 2, 'name': 'Broken'}
+        markup = {'title_id': '[/red]', 'name': 'Looks like markup'}
 
         def respond(request: httpx.Request) -> httpx.Response:
             if str(request.url) == COGNITO_URL:
@@ -189,7 +190,7 @@ class DownloadTest(unittest.TestCase):
             return httpx.Response(
                 200,
                 headers={'Date': format_datetime(datetime.fromtimestamp(NOW, UTC), usegmt=True), 'Age': '0'},
-                json={'movies': [available, malformed]},
+                json={'movies': [available, malformed, markup]},
             )
 
         with httpx.Client(transport=httpx.MockTransport(respond)) as client:
