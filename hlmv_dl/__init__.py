@@ -73,7 +73,7 @@ def parse_catalog(content: bytes) -> list[Movie]:
             movies.append(adapter.validate_python(entry))
         except ValidationError:
             title_id = entry.get('title_id', 'unknown') if isinstance(entry, dict) else 'unknown'
-            console.print(f'[yellow]Skipping a malformed catalog entry: {title_id}[/yellow]')
+            console.print(f'Skipping a malformed catalog entry: {title_id}', style='yellow')
     return movies
 
 

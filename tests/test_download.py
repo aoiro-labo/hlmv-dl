@@ -169,6 +169,8 @@ class DownloadTest(unittest.TestCase):
         self.assertIn('Cannot specify both', result.output)
 
     def test_malformed_catalog_entry_is_skipped(self) -> None:
+        """Skip entries that do not match the Movie schema."""
+
         available = movie().model_dump()
         malformed = {'title_id': 2, 'name': 'Broken'}
 
@@ -195,6 +197,8 @@ class DownloadTest(unittest.TestCase):
             self.assertEqual([item.title_id for item in hello_movie.list_movies()], [1])
 
     def test_opus_header_is_validated_after_segment_table(self) -> None:
+        """Locate the OpusHead packet after the Ogg segment table."""
+
         page = bytearray(64)
         page[:4] = b'OggS'
         page[26] = 2
@@ -205,6 +209,8 @@ class DownloadTest(unittest.TestCase):
         self.assertFalse(is_valid_opus(bytes(page)))
 
     def test_download_retries_once_after_authentication_error(self) -> None:
+        """Refresh credentials and retry once when the package request returns 403."""
+
         package = io.BytesIO()
         with ZipFile(package, 'w') as archive:
             archive.writestr('voiceguide/data/sound.dat', ENCODED_HEADER)
